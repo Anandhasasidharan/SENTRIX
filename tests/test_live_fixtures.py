@@ -78,9 +78,16 @@ def test_fixture_schema_version(fixture_payload):
     assert all(
         r["outcome"] in {o.value for o in LiveOutcome} for r in rows
     ), "every row must carry the explicit outcome enum"
-    assert all("plan_text" in r and r["plan_text"] for r in rows), (
+    assert all(
+        "plan_text" in r and r["plan_text"] for r in rows if r["outcome"] != "error"
+    ), (
         "plan_text must be stored in full — truncation corrupted the first "
-        "run's evidence"
+        "run's evidence. Error rows are exempt: the model produced no plan, "
+        "which is the failure itself (see a7630e6)."
+    )
+    error_rows = [r for r in rows if r["outcome"] == "error"]
+    assert all(r["error_detail"] for r in error_rows), (
+        "error rows must carry error_detail as their evidence"
     )
     assert all(
         "narrated_unmediated" in r and "narrated_with_mediation" in r
@@ -91,6 +98,8 @@ def test_fixture_schema_version(fixture_payload):
 def test_every_row_replays_to_its_recorded_outcome(fixture_payload, interpreter):
     mismatches = []
     for row in fixture_payload["tasks"]:
+        if row["outcome"] == "error":
+            continue  # execution-time failure, not derivable from plan_text
         derived = _derive(row, interpreter)
         if derived.value != row["outcome"]:
             mismatches.append(
