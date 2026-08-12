@@ -5,10 +5,10 @@ import os
 from collections.abc import Callable
 from typing import Any
 
-from sentrix.classifier.detector import Classifier, ClassifierResult
+from sentrix.classifier.detector import Classifier
 from sentrix.core.plan_interpreter import PlanInterpreter
 from sentrix.core.reference_monitor import ReferenceMonitor
-from sentrix.core.trace_stream import StreamCollector, StreamEvent, TraceStream
+from sentrix.core.trace_stream import StreamCollector, TraceStream
 from sentrix.dual_llm.base import CallableLLMClient, LLMClient
 from sentrix.dual_llm.context_manager import ContextManager
 from sentrix.dual_llm.privileged_llm import PrivilegedLLM
@@ -277,6 +277,26 @@ class Sentrix:
                 metadata={
                     "block_reason": "Plan narrates completion without a backing tool call",
                     "narrated_actions": result.narrated_unmediated_actions,
+                },
+            )
+            self._timeline.add_event(event)
+            self._dag_builder.add_event(event)
+            self._publish_to_stream(event, session_id)
+
+        if result.narrated_with_mediation:
+            event = TraceEvent(
+                agent_id=self._agent_id,
+                session_id=session_id,
+                source_role=LLMRole.PRIVILEGED,
+                tool_call=ToolCall(
+                    tool_name="narrated_with_mediation",
+                    arguments={"phrases": result.narrated_with_mediation},
+                    provenance=Provenance.TRUSTED,
+                ),
+                verdict=ActionVerdict.FLAGGED,
+                metadata={
+                    "block_reason": "Plan narrates tool usage alongside mediated calls (informational)",
+                    "narrated_actions": result.narrated_with_mediation,
                 },
             )
             self._timeline.add_event(event)

@@ -45,6 +45,7 @@ class PlanResult:
     all_allowed: bool = True
     blocked_steps: int = 0
     narrated_unmediated_actions: list[str] = field(default_factory=list)
+    narrated_with_mediation: list[str] = field(default_factory=list)
     unresolved_steps: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -141,13 +142,15 @@ class PlanInterpreter:
             self._emit_stream_event(event, session_id)
             result.step_results.append(step_info)
 
-        executed_tools = [
+        mediated_tools = [
             s["tool"] for s in result.step_results
-            if s.get("verdict") in ("allowed", "flagged")
+            if s.get("verdict") in ("allowed", "flagged", "blocked")
         ]
-        narrated = detect_narrated_actions(plan_text, executed_tools)
-        if narrated:
-            phrases = [f["phrase"] for f in narrated]
+        unmediated, with_mediation = detect_narrated_actions(
+            plan_text, mediated_tools
+        )
+        if unmediated:
+            phrases = [f["phrase"] for f in unmediated]
             result.narrated_unmediated_actions = phrases
             result.all_allowed = False
             event = TraceEvent(
@@ -166,10 +169,34 @@ class PlanInterpreter:
                 metadata={
                     "block_reason": "Plan narrates completion without a backing tool call",
                     "narrated_actions": phrases,
-                    "executed_tools": executed_tools,
+                    "mediated_tools": mediated_tools,
                 },
             )
             self._monitor.emit_blocked_event(event)
+            self._emit_stream_event(event, session_id)
+
+        if with_mediation:
+            result.narrated_with_mediation = [
+                f["phrase"] for f in with_mediation
+            ]
+            event = TraceEvent(
+                agent_id=self._agent_id,
+                session_id=session_id,
+                source_role=LLMRole.PRIVILEGED,
+                provenance=Provenance.TRUSTED,
+                content=plan_text[:1000],
+                tool_call=ToolCall(
+                    tool_name="narrated_with_mediation",
+                    arguments={"phrases": result.narrated_with_mediation},
+                    provenance=Provenance.TRUSTED,
+                ),
+                verdict=ActionVerdict.FLAGGED,
+                metadata={
+                    "block_reason": "Plan narrates tool usage alongside mediated calls (informational)",
+                    "narrated_actions": result.narrated_with_mediation,
+                    "mediated_tools": mediated_tools,
+                },
+            )
             self._emit_stream_event(event, session_id)
 
         return result

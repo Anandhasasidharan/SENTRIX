@@ -58,7 +58,8 @@ def run_one(task: dict[str, Any], sentrix: Sentrix) -> TaskRow:
         blocked_steps=[
             s for s in result.step_results if s.get("verdict") == "blocked"
         ],
-        narrated_actions=result.narrated_unmediated_actions,
+        narrated_unmediated=result.narrated_unmediated_actions,
+        narrated_with_mediation=result.narrated_with_mediation,
     )
     row.id = task["id"]
     row.domain = task.get("domain", "")

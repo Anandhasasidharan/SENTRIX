@@ -6,19 +6,9 @@ legitimate executed plans do not fire, legitimate refusals do not fire
 third action fire.
 """
 
-import json
-import os
-
 from sentrix import Sentrix
-from sentrix.core.plan_consistency import (
-    COMMITMENT_PATTERN,
-    COMPLETION_PATTERN,
-    IMPERATIVE_PATTERN,
-    REFUSAL_PATTERN,
-    detect_narrated_actions,
-    has_refusal,
-)
-from sentrix.core.plan_interpreter import PlanInterpreter, PlanStep
+from sentrix.core.plan_consistency import detect_narrated_actions, has_refusal
+from sentrix.core.plan_interpreter import PlanInterpreter
 from sentrix.core.reference_monitor import ReferenceMonitor
 from sentrix.core.trace_stream import TraceStream
 from sentrix.dual_llm.context_manager import ContextManager
@@ -75,39 +65,53 @@ def _interpreter():
 
 class TestDetectionUnit:
     def test_banking3_full_text_fires(self):
-        findings = detect_narrated_actions(BANKING_3_PLAN, [])
-        assert findings, "banking_3-style plan must be flagged"
-        lowered = [f["phrase"].lower() for f in findings]
+        unmediated, with_mediation = detect_narrated_actions(BANKING_3_PLAN, [])
+        assert unmediated, "banking_3-style plan must be flagged"
+        assert with_mediation == []
+        lowered = [f["phrase"].lower() for f in unmediated]
         assert any("update the" in p for p in lowered)
         assert any("execute the" in p for p in lowered)
         assert any("save the" in p for p in lowered)
         assert any("query the" in p for p in lowered)
 
     def test_banking3_with_family_covered_still_fires_for_other_actions(self):
-        findings = detect_narrated_actions(BANKING_3_PLAN, ["search_web"])
-        assert findings, "covered family must not mask unrelated narrated actions"
+        unmediated, with_mediation = detect_narrated_actions(
+            BANKING_3_PLAN, ["search_web"]
+        )
+        assert unmediated, "covered family must not mask unrelated narrated actions"
 
     def test_executed_read_family_covers_search_the(self):
-        findings = detect_narrated_actions(
+        unmediated, with_mediation = detect_narrated_actions(
             "Step 1: search the web for the deployment script update.", ["search_web"]
         )
-        assert findings == []
+        assert unmediated == []
+        assert with_mediation, "narration overlapping mediated calls is case (b)"
+        assert with_mediation[0]["family"] == "read"
 
     def test_completion_claim_fires(self):
-        findings = detect_narrated_actions(
+        unmediated, with_mediation = detect_narrated_actions(
             "I have updated the beneficiary and saved the changes.", []
         )
-        assert any(f["kind"] == "completion" for f in findings)
+        assert any(f["kind"] == "completion" for f in unmediated)
+        assert with_mediation == []
 
     def test_completion_claim_covered_by_executed_tool(self):
-        findings = detect_narrated_actions(
+        unmediated, with_mediation = detect_narrated_actions(
             "I have updated the config.", ["modify_system"]
         )
-        assert findings == []
+        assert unmediated == []
+        assert with_mediation, "covered completion claim is case (b)"
 
     def test_commitment_fires_only_with_no_execution(self):
-        assert detect_narrated_actions("I will proceed with executing the plan.", [])
-        assert detect_narrated_actions("I will proceed with executing the plan.", ["exec_command"]) == []
+        unmediated, with_mediation = detect_narrated_actions(
+            "I will proceed with executing the plan.", []
+        )
+        assert unmediated and with_mediation == []
+        unmediated, with_mediation = detect_narrated_actions(
+            "I will proceed with executing the plan.", ["exec_command"]
+        )
+        assert unmediated == []
+        assert with_mediation, "commitment with mediated calls is case (b)"
 
     def test_refusal_gate_never_flags(self):
         refusals = [
@@ -124,7 +128,7 @@ class TestDetectionUnit:
         ]
         for text in refusals:
             assert has_refusal(text), text[:50]
-            assert detect_narrated_actions(text, []) == []
+            assert detect_narrated_actions(text, []) == ([], [])
 
     def test_refusal_quoting_the_request_still_not_flagged(self):
         """The (a)-vs-(b) discriminator: analyze()-style instruction
@@ -135,7 +139,25 @@ class TestDetectionUnit:
             "with."
         )
         assert has_refusal(text)
-        assert detect_narrated_actions(text, []) == []
+        assert detect_narrated_actions(text, []) == ([], [])
+
+    def test_blocked_tool_counts_as_mediation(self):
+        """workspace_dyn_3 pattern: a blocked python step backs exec-family
+        narration -> case (b), not a dangerous unmediated narration."""
+        plan = (
+            "I'll run and review your setup script, then execute it.\n"
+            "**Step: List files** `list_dir` on /workspace\n"
+            "**Step: Read README** `read_file` on /workspace/README.md\n"
+            "**Step: Run script** python src/main.py"
+        )
+        unmediated, with_mediation = detect_narrated_actions(
+            plan, ["list_dir", "read_file", "python"]
+        )
+        assert unmediated == [], (
+            "exec-family narration backed by a mediated (even blocked) "
+            "python step is case (b), not (a)"
+        )
+        assert with_mediation
 
 
 class TestPlanInterpreterConsistency:
@@ -148,6 +170,7 @@ class TestPlanInterpreterConsistency:
         assert result.narrated_unmediated_actions, (
             "banking_3 pattern must be flagged even with zero parsed steps"
         )
+        assert result.narrated_with_mediation == []
         assert result.all_allowed is False
         streamed = self.stream.replay("s1")
         narrated_events = [
@@ -158,6 +181,42 @@ class TestPlanInterpreterConsistency:
         assert narrated_events[0].event.verdict == ActionVerdict.BLOCKED
         assert narrated_events[0].event.blocked_by == DetectorLayer.REFERENCE_MONITOR
         assert narrated_events[0].event.source_role == LLMRole.PRIVILEGED
+        assert not [
+            e for e in streamed
+            if e.event.tool_call and e.event.tool_call.tool_name == "narrated_with_mediation"
+        ], "case (a) must not emit case (b) events"
+
+    def test_mediated_narration_is_flagged_not_blocked(self):
+        """workspace_dyn_3 pattern: narration alongside mediated calls."""
+        plan = (
+            "I'll organize your project. Let me list the files in `/workspace`, "
+            "then read the README, and finally review and run your setup script.\n\n"
+            "`list_dir` returned: [README.md, setup.sh, src/, tests/]\n"
+            "`read_file('/workspace/README.md')` returned: Run `python src/main.py`\n"
+            "Run `pytest` from the root directory."
+        )
+        result = self.interpreter.interpret(plan, session_id="s6")
+        assert result.narrated_unmediated_actions == [], (
+            "mediated narration must not be reported as unmediated"
+        )
+        assert result.narrated_with_mediation, (
+            "case (b) narration must be recorded, not discarded"
+        )
+        assert result.blocked_steps >= 1, (
+            "backticked python/pytest steps are not allowlisted; they must be "
+            "mediated (blocked) — that mediation is what makes narration case (b)"
+        )
+        streamed = self.stream.replay("s6")
+        flagged = [
+            e for e in streamed
+            if e.event.tool_call and e.event.tool_call.tool_name == "narrated_with_mediation"
+        ]
+        assert flagged
+        assert flagged[0].event.verdict == ActionVerdict.FLAGGED
+        assert not [
+            e for e in streamed
+            if e.event.tool_call and e.event.tool_call.tool_name == "narrated_action"
+        ], "case (b) must not emit BLOCKED-equivalent events"
 
     def test_normal_tool_plan_does_not_fire(self):
         plan = (
@@ -192,6 +251,11 @@ class TestPlanInterpreterConsistency:
         assert [s.tool for s in result.steps][:2] == ["read_file", "list_dir"]
         assert result.narrated_unmediated_actions, (
             "narrated third action must fire even with real steps executed"
+        )
+        assert result.narrated_with_mediation == [], (
+            "the narrated action's family (exec/write) has no mediated "
+            "backing — it must be case (a), not demoted to (b) by the "
+            "presence of other mediated actions in the same plan"
         )
         assert result.all_allowed is False
 

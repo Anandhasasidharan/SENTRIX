@@ -65,13 +65,14 @@ def _derive(row: dict, interp: PlanInterpreter) -> LiveOutcome:
         blocked_steps=[
             s for s in result.step_results if s.get("verdict") == "blocked"
         ],
-        narrated_actions=result.narrated_unmediated_actions,
+        narrated_unmediated=result.narrated_unmediated_actions,
+        narrated_with_mediation=result.narrated_with_mediation,
     )
     return classified.outcome
 
 
 def test_fixture_schema_version(fixture_payload):
-    assert fixture_payload["schema_version"] == 2
+    assert fixture_payload["schema_version"] == 3
     rows = fixture_payload["tasks"]
     assert len(rows) == 54
     assert all(
@@ -81,6 +82,10 @@ def test_fixture_schema_version(fixture_payload):
         "plan_text must be stored in full — truncation corrupted the first "
         "run's evidence"
     )
+    assert all(
+        "narrated_unmediated" in r and "narrated_with_mediation" in r
+        for r in rows
+    ), "every row must carry the split narration signals (schema v3)"
 
 
 def test_every_row_replays_to_its_recorded_outcome(fixture_payload, interpreter):
@@ -121,16 +126,26 @@ def test_unresolved_rows_are_never_policy_denials(fixture_payload, interpreter):
         assert row["unresolved_steps"], f"{row['id']}: must name the unresolved refs"
 
 
-def test_narrated_completion_is_a_separate_signal(fixture_payload, interpreter):
-    """Narration flag must be reproducible from the stored plan and must
-    never be the *only* reason a row reads as mediated — it is a distinct
-    signal from the outcome enum."""
-    narrated = [r for r in fixture_payload["tasks"] if r["narrated_completion"]]
-    for r in narrated:
+def test_narration_flags_are_reproducible(fixture_payload, interpreter):
+    """Narration flags must be reproducible from the stored plan and must
+    never be the *only* reason a row reads as mediated — they are distinct
+    signals from the outcome enum."""
+    unmediated = [r for r in fixture_payload["tasks"] if r["narrated_unmediated"]]
+    for r in unmediated:
         result = interpreter.interpret(r["plan_text"])
         assert result.narrated_unmediated_actions, (
-            f"{r['id']}: narrated_completion flag must reproduce from the "
+            f"{r['id']}: narrated_unmediated flag must reproduce from the "
             f"stored plan_text (it is a data-level signal, not a label)"
+        )
+    with_mediation = [r for r in fixture_payload["tasks"] if r["narrated_with_mediation"]]
+    for r in with_mediation:
+        result = interpreter.interpret(r["plan_text"])
+        assert result.narrated_with_mediation, (
+            f"{r['id']}: narrated_with_mediation flag must reproduce from "
+            f"the stored plan_text"
+        )
+        assert not result.narrated_unmediated_actions, (
+            f"{r['id']}: case (b) narration must never also read as case (a)"
         )
     for r in fixture_payload["tasks"]:
         if "banking_3" in r["id"]:
