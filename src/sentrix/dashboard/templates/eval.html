@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-graph-up"></i> Evaluation Results</h2>
+        <p class="text-muted">Adaptive attack test harness — standard + obfuscated</p>
+    </div>
+</div>
+
+{% if by_domain %}
+<div class="row mb-4">
+    {% for domain in by_domain %}
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number {% if domain.block_rate == '100%' %}text-success{% else %}text-warning{% endif %}">
+                    {{ domain.block_rate }}
+                </div>
+                <div class="text-muted">{{ domain.domain }} ({{ domain.blocked }}/{{ domain.total }})</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if comparison_json %}
+<script>
+    const comparison = {{ comparison_json|safe }};
+</script>
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-bar-chart"></i> Block Rate Comparison</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h3 class="text-success">{{ comparison_json.standard.block_rate }}</h3>
+                        <p class="text-muted">Standard Attacks<br>
+                        <small>{{ comparison_json.standard.blocked }}/{{ comparison_json.standard.total }} blocked</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h3 class="{% if comparison_json.delta.block_rate_change and comparison_json.delta.block_rate_change[0] == '-' %}text-danger{% else %}text-warning{% endif %}">
+                            {{ comparison_json.obfuscated.block_rate }}
+                        </h3>
+                        <p class="text-muted">Obfuscated Attacks<br>
+                        <small>{{ comparison_json.obfuscated.blocked }}/{{ comparison_json.obfuscated.total }} blocked</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% if comparison_json.delta.block_rate_change and comparison_json.delta.block_rate_change != '0.0%' and comparison_json.delta.block_rate_change != 'N/A' %}
+        <div class="alert alert-warning mt-3">
+            <i class="bi bi-exclamation-triangle"></i>
+            Delta: {{ comparison_json.delta.block_rate_change }} change in block rate under obfuscation
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-shield"></i> Standard Attacks</div>
+            <div class="card-body p-0">
+                <table class="table table-dark table-striped mb-0">
+                    <thead><tr><th>Attack</th><th>Domain</th><th>Result</th></tr></thead>
+                    <tbody>
+                        {% for r in standard_results %}
+                        <tr>
+                            <td>{{ r.name }}</td>
+                            <td><span class="badge bg-secondary">{{ r.domain }}</span></td>
+                            <td>
+                                {% if r.blocked %}
+                                <span class="badge badge-blocked">BLOCKED</span>
+                                {% else %}
+                                <span class="badge bg-warning">GOT THROUGH</span>
+                                {% endif %}
+                                <small class="text-muted ms-1">{{ r.detail[:40] }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-shield-slash"></i> Obfuscated Attacks</div>
+            <div class="card-body p-0">
+                <table class="table table-dark table-striped mb-0">
+                    <thead><tr><th>Attack</th><th>Technique</th><th>Result</th></tr></thead>
+                    <tbody>
+                        {% for r in obfuscated_results %}
+                        <tr>
+                            <td>{{ r.name }}</td>
+                            <td><span class="badge bg-secondary">{{ r.tech or 'none' }}</span></td>
+                            <td>
+                                {% if r.blocked %}
+                                <span class="badge badge-blocked">BLOCKED</span>
+                                {% else %}
+                                <span class="badge bg-warning">GOT THROUGH</span>
+                                {% endif %}
+                                <small class="text-muted ms-1">{{ r.detail[:40] }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

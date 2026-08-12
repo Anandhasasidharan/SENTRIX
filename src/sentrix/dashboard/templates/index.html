@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+        <p class="text-muted">Session: <code>{{ session_id }}</code> &middot; Agent: <code>{{ agent_id }}</code></p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-info">{{ event_count }}</div>
+                <div class="text-muted">Total Events</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-success">{{ summary.get('allowed', 0) }}</div>
+                <div class="text-muted">Allowed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-danger">{{ summary.get('blocked', 0) }}</div>
+                <div class="text-muted">Blocked</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-warning">{{ summary.get('flagged', 0) }}</div>
+                <div class="text-muted">Flagged</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if summary.get('blocked_by_layer') %}
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-layers"></i> Blocked by Layer</div>
+    <div class="card-body">
+        <div class="row">
+            {% for layer, count in summary.blocked_by_layer.items() %}
+            <div class="col-md-4">
+                <span class="badge bg-secondary">{{ layer }}</span>
+                <strong>{{ count }}</strong> event(s)
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-list-timeline"></i> Recent Timeline</div>
+    <div class="card-body">
+        <pre>{{ timeline }}</pre>
+        <a href="/timeline" class="btn btn-outline-primary btn-sm">View Full Timeline</a>
+    </div>
+</div>
+{% endblock %}

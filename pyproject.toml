@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentrix"
+version = "0.1.0"
+description = "EDR/XDR for AI agents — dual-LLM reference monitor with static taint analysis, embedding classifier, and adaptive attack testing"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.30.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.3.0",
+    "scikit-learn>=1.4.0",
+]
+openai = [
+    "openai>=1.0.0",
+]
+eval = [
+    "agentdojo>=0.1.0",
+]
+dashboard = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "jinja2>=3.1.0",
+]
+
+[project.scripts]
+sentrix-dashboard = "sentrix.dashboard.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

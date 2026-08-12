@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-diagram-3"></i> Attack DAG</h2>
+        <p class="text-muted">Session: <code>{{ session_id }}</code></p>
+    </div>
+</div>
+
+{% if summary_json %}
+<script>
+    const summary = {{ summary_json|safe }};
+</script>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-info">{{ summary_json.get('total_events', 0) }}</div>
+                <div class="text-muted">Total Events</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-success">{{ summary_json.get('allowed', 0) }}</div>
+                <div class="text-muted">Allowed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-danger">{{ summary_json.get('blocked', 0) }}</div>
+                <div class="text-muted">Blocked</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number text-warning">{{ summary_json.get('flagged', 0) }}</div>
+                <div class="text-muted">Flagged</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-diagram-3"></i> Delegation Chain DAG</div>
+    <div class="card-body">
+        <pre>{{ dag_text }}</pre>
+        <p class="text-muted small mt-2">
+            <span class="badge bg-success">✓</span> Allowed
+            <span class="badge bg-danger">✗</span> Blocked
+            <span class="badge bg-warning">⚠</span> Flagged
+            <span class="badge bg-secondary">○</span> Informational
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-benchmark"></i> AgentDojo Evaluation</h2>
+        <p class="text-muted">30 benchmark tasks across 6 domains</p>
+    </div>
+</div>
+
+{% if report %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number {% if report.block_rate == '100%' %}text-success{% else %}text-warning{% endif %}">
+                    {{ report.block_rate }}
+                </div>
+                <div class="text-muted">Overall ({{ report.correct }}/{{ report.total }})</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    {% for domain, info in report.by_domain.items() %}
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="number {% if info.block_rate == '100%' %}text-success{% elif info.block_rate == '0%' %}text-danger{% else %}text-warning{% endif %}">
+                    {{ info.block_rate }}
+                </div>
+                <div class="text-muted">{{ domain }} ({{ info.correct }}/{{ info.total }})</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-list-check"></i> All Tasks</div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped mb-0">
+            <thead><tr><th>ID</th><th>Domain</th><th>Name</th><th>Expected</th><th>Monitor</th><th>Classifier</th><th>Result</th></tr></thead>
+            <tbody>
+                {% for r in report.results %}
+                <tr>
+                    <td><code>{{ r.id }}</code></td>
+                    <td><span class="badge bg-secondary">{{ r.domain }}</span></td>
+                    <td>{{ r.name }}</td>
+                    <td>
+                        {% if r.expected == 'blocked' %}
+                        <span class="badge badge-blocked">BLOCK</span>
+                        {% else %}
+                        <span class="badge badge-flagged">FLAG</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.monitor_blocked %}
+                        <span class="badge badge-blocked">🛡️</span>
+                        {% else %}
+                        <span class="badge bg-secondary">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.classifier_triggered %}
+                        <span class="badge badge-flagged">🔍</span>
+                        {% else %}
+                        <span class="badge bg-secondary">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.passed %}
+                        <span class="badge badge-allowed">PASS</span>
+                        {% else %}
+                        <span class="badge badge-blocked">FAIL</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" class="h-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentrix Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body { background: #0d1117; color: #c9d1d9; }
+        .navbar { background: #161b22 !important; border-bottom: 1px solid #30363d; }
+        .navbar-brand { color: #58a6ff !important; font-weight: 700; }
+        .nav-link { color: #8b949e !important; }
+        .nav-link:hover, .nav-link.active { color: #58a6ff !important; }
+        .card { background: #161b22; border: 1px solid #30363d; }
+        .card-header { background: #1c2128; border-bottom: 1px solid #30363d; color: #c9d1d9; }
+        .text-muted { color: #8b949e !important; }
+        .badge-allowed { background: #238636; }
+        .badge-blocked { background: #da3633; }
+        .badge-flagged { background: #d29922; }
+        pre { background: #0d1117; color: #c9d1d9; padding: 1rem; border-radius: 6px; border: 1px solid #30363d; overflow-x: auto; }
+        .stat-card { text-align: center; padding: 1.5rem; }
+        .stat-card .number { font-size: 2.5rem; font-weight: 700; }
+        .table { color: #c9d1d9; }
+        .table thead { color: #8b949e; }
+        hr { border-color: #30363d; }
+        a { color: #58a6ff; }
+    </style>
+</head>
+<body class="d-flex flex-column h-100">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check"></i> Sentrix
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/timeline"><i class="bi bi-list-timeline"></i> Timeline</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/dag"><i class="bi bi-diagram-3"></i> Attack DAG</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/eval"><i class="bi bi-graph-up"></i> Evaluation</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/agentdojo"><i class="bi bi-benchmark"></i> AgentDojo</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/plan"><i class="bi bi-diagram-2"></i> Plan Exec</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/report"><i class="bi bi-file-text"></i> Report</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-4 mb-4 flex-shrink-0">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer mt-auto py-3" style="border-top: 1px solid #30363d;">
+        <div class="container text-center text-muted small">
+            Sentrix v0.1.0 — EDR/XDR for AI Agents
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

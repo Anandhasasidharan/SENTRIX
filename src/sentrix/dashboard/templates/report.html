@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-file-text"></i> Incident Report</h2>
+        <p class="text-muted">Session: <code>{{ session_id }}</code></p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-journal-text"></i> Report</span>
+        <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+            <i class="bi bi-printer"></i> Print
+        </button>
+    </div>
+    <div class="card-body">
+        <pre style="white-space: pre-wrap; font-family: inherit; background: transparent; border: none; padding: 0; color: #c9d1d9;">{{ markdown }}</pre>
+    </div>
+</div>
+{% endblock %}
